@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Lista de Tarefas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Cabeçalho -->
+        <header class="header">
+            <h1>Minha Lista de Tarefas</h1>
+            <p>Organize seu dia de forma simples!</p>
+        </header>
+
+        <!-- Área de entrada de nova tarefa -->
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="Digite uma nova tarefa...">
+            <button id="addButton">Adicionar</button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">Todas</button>
+            <button class="filter-btn" data-filter="pending">Pendentes</button>
+            <button class="filter-btn" data-filter="completed">Concluídas</button>
+        </div>
+
+        <!-- Lista de tarefas -->
+        <div class="tasks-section">
+            <ul id="taskList">
+                <!-- As tarefas serão adicionadas aqui dinamicamente -->
+                <!-- Exemplo de como uma tarefa ficará:
+                <li class="task-item">
+                    <input type="checkbox" class="task-checkbox">
+                    <span class="task-text">Minha primeira tarefa</span>
+                    <button class="delete-btn">×</button>
+                </li>
+                -->
+            </ul>
+        </div>
+
+        <!-- Contadores -->
+        <div class="stats">
+            <p>Total: <span id="totalTasks">0</span></p>
+            <p>Pendentes: <span id="pendingTasks">0</span></p>
+            <p>Concluídas: <span id="completedTasks">0</span></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
