@@ -1,9 +1,10 @@
-// script.js - Versão Otimizada
+// script.js - Kanban Board Otimizado
 
-class TaskManager {
+class KanbanManager {
     constructor() {
-        this.tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        this.currentFilter = 'all';
+        this.tasks = this.loadTasks();
+        this.currentPriorityFilter = 'todas';
+        this.draggedElement = null;
         this.init();
     }
 
@@ -14,68 +15,93 @@ class TaskManager {
     }
 
     cacheDOM() {
-        // Elementos principais
+        // Inputs
         this.taskInput = document.getElementById('taskInput');
+        this.taskDescription = document.getElementById('taskDescription');
+        this.prioritySelect = document.getElementById('prioritySelect');
         this.addButton = document.getElementById('addButton');
-        this.taskList = document.getElementById('taskList');
-        this.filterButtons = document.querySelectorAll('.filter-btn');
-        
-        // Elementos de estatísticas
-        this.totalTasks = document.getElementById('totalTasks');
-        this.pendingTasks = document.getElementById('pendingTasks');
-        this.completedTasks = document.getElementById('completedTasks');
+
+        // Colunas
+        this.todoColumn = document.getElementById('todoTasks');
+        this.inProgressColumn = document.getElementById('inProgressTasks');
+        this.doneColumn = document.getElementById('doneTasks');
+
+        // Estatísticas
+        this.todoCount = document.getElementById('todoCount');
+        this.inProgressCount = document.getElementById('inProgressCount');
+        this.doneCount = document.getElementById('doneCount');
+        this.totalCount = document.getElementById('totalCount');
+
+        // Contadores das colunas
+        this.todoColumnCount = document.getElementById('todoColumnCount');
+        this.inProgressColumnCount = document.getElementById('inProgressColumnCount');
+        this.doneColumnCount = document.getElementById('doneColumnCount');
+
+        // Filtros de prioridade
+        this.priorityFilterButtons = document.querySelectorAll('.priority-filter-btn');
+
+        // Template
+        this.taskTemplate = document.getElementById('taskCardTemplate');
     }
 
     bindEvents() {
-        // Event delegation para a lista de tarefas
-        this.taskList.addEventListener('click', (e) => this.handleTaskClick(e));
-        this.taskList.addEventListener('change', (e) => this.handleTaskChange(e));
-
-        // Eventos de entrada
+        // Adicionar tarefa
         this.addButton.addEventListener('click', () => this.addTask());
         this.taskInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addTask();
         });
 
-        // Filtros
-        this.filterButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.setFilter(e.target.dataset.filter);
-            });
+        // Event delegation para todas as colunas
+        [this.todoColumn, this.inProgressColumn, this.doneColumn].forEach(column => {
+            column.addEventListener('click', (e) => this.handleCardClick(e));
+            
+            // Drag and Drop
+            column.addEventListener('dragover', (e) => this.handleDragOver(e));
+            column.addEventListener('drop', (e) => this.handleDrop(e));
         });
 
-        // Botão limpar concluídas
-        document.getElementById('clearCompleted')?.addEventListener('click', () => this.clearCompleted());
+        // Filtros de prioridade
+        this.priorityFilterButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => this.setPriorityFilter(e.target.dataset.priority));
+        });
     }
 
     // === FUNÇÕES PRINCIPAIS ===
 
     addTask() {
         const taskText = this.taskInput.value.trim();
-        
+        const taskDesc = this.taskDescription.value.trim();
+        const priority = this.prioritySelect.value;
+
         if (!taskText) {
-            this.showAlert('Por favor, digite uma tarefa!');
+            this.showAlert('Por favor, digite o título da tarefa!');
             return;
         }
 
         const newTask = {
-            id: Date.now() + Math.random(), // ID mais único
-            text: taskText,
-            completed: false,
+            id: Date.now() + Math.random(),
+            title: taskText,
+            description: taskDesc,
+            priority: priority,
+            status: 'todo',
             createdAt: new Date().toLocaleString('pt-BR')
         };
 
         this.tasks.push(newTask);
-        this.taskInput.value = '';
-        this.taskInput.focus();
         
+        // Limpar inputs
+        this.taskInput.value = '';
+        this.taskDescription.value = '';
+        this.prioritySelect.value = 'media';
+        this.taskInput.focus();
+
         this.saveAndUpdate();
     }
 
-    toggleTaskCompletion(taskId) {
+    moveTask(taskId, newStatus) {
         const task = this.tasks.find(t => t.id === taskId);
-        if (task) {
-            task.completed = !task.completed;
+        if (task && task.status !== newStatus) {
+            task.status = newStatus;
             this.saveAndUpdate();
         }
     }
@@ -87,166 +113,248 @@ class TaskManager {
         }
     }
 
-    editTask(taskId, currentText) {
-        const newText = prompt('Edite sua tarefa:', currentText);
-        
-        if (newText?.trim()) {
-            const task = this.tasks.find(t => t.id === taskId);
-            if (task) {
-                task.text = newText.trim();
-                this.saveAndUpdate();
-            }
-        }
-    }
-
     // === RENDERIZAÇÃO ===
 
     render() {
-        this.renderTasks();
+        this.renderAllColumns();
         this.updateStats();
     }
 
-    renderTasks() {
-        const filteredTasks = this.getFilteredTasks();
-        
-        this.taskList.innerHTML = filteredTasks.map(task => `
-            <li class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
-                <div class="task-content">
-                    <input 
-                        type="checkbox" 
-                        class="task-checkbox" 
-                        ${task.completed ? 'checked' : ''}
-                    >
-                    <span class="task-text">${this.escapeHTML(task.text)}</span>
-                    <small class="task-date">${task.createdAt}</small>
-                </div>
-                <div class="task-actions">
-                    <button class="edit-btn" title="Editar tarefa">✏️</button>
-                    <button class="delete-btn" title="Excluir tarefa">×</button>
-                </div>
-            </li>
-        `).join('');
+    renderAllColumns() {
+        this.renderColumn('todo', this.todoColumn);
+        this.renderColumn('inprogress', this.inProgressColumn);
+        this.renderColumn('done', this.doneColumn);
     }
 
-    // === FILTROS E ESTATÍSTICAS ===
-
-    getFilteredTasks() {
-        switch (this.currentFilter) {
-            case 'pending':
-                return this.tasks.filter(task => !task.completed);
-            case 'completed':
-                return this.tasks.filter(task => task.completed);
-            default:
-                return this.tasks;
-        }
-    }
-
-    setFilter(filter) {
-        this.currentFilter = filter;
+    renderColumn(status, columnElement) {
+        const filteredTasks = this.getFilteredTasksByStatus(status);
         
-        // Atualiza estado visual dos botões
-        this.filterButtons.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.filter === filter);
-        });
-        
-        this.renderTasks();
-    }
+        columnElement.innerHTML = '';
 
-    updateStats() {
-        const total = this.tasks.length;
-        const completed = this.tasks.filter(task => task.completed).length;
-        const pending = total - completed;
-
-        this.totalTasks.textContent = total;
-        this.completedTasks.textContent = completed;
-        this.pendingTasks.textContent = pending;
-    }
-
-    // === GERENCIAMENTO DE DADOS ===
-
-    clearCompleted() {
-        const hasCompleted = this.tasks.some(task => task.completed);
-        
-        if (!hasCompleted) {
-            this.showAlert('Não há tarefas concluídas para limpar!');
+        if (filteredTasks.length === 0) {
+            columnElement.innerHTML = '<div class="empty-column">Nenhuma tarefa</div>';
             return;
         }
 
-        if (confirm('Deseja limpar todas as tarefas concluídas?')) {
-            this.tasks = this.tasks.filter(task => !task.completed);
-            this.saveAndUpdate();
-        }
+        filteredTasks.forEach(task => {
+            const taskCard = this.createTaskCard(task);
+            columnElement.appendChild(taskCard);
+        });
     }
 
-    saveAndUpdate() {
-        this.saveToStorage();
+    createTaskCard(task) {
+        const template = this.taskTemplate.content.cloneNode(true);
+        const card = template.querySelector('.task-card');
+
+        // Configurar card
+        card.dataset.id = task.id;
+        card.dataset.priority = task.priority;
+
+        // Título e descrição
+        card.querySelector('.task-title').textContent = task.title;
+        const descElement = card.querySelector('.task-description');
+        if (task.description) {
+            descElement.textContent = task.description;
+        } else {
+            descElement.style.display = 'none';
+        }
+
+        // Badge de prioridade
+        const badge = card.querySelector('.priority-badge');
+        badge.textContent = this.getPriorityLabel(task.priority);
+        badge.classList.add(`priority-${task.priority}`);
+
+        // Data
+        card.querySelector('.task-date').textContent = task.createdAt;
+
+        // Configurar botões de movimento
+        const moveLeft = card.querySelector('.move-left');
+        const moveRight = card.querySelector('.move-right');
+
+        if (task.status === 'todo') {
+            moveLeft.style.display = 'none';
+        } else if (task.status === 'done') {
+            moveRight.style.display = 'none';
+        }
+
+        // Eventos de drag
+        card.addEventListener('dragstart', (e) => this.handleDragStart(e));
+        card.addEventListener('dragend', (e) => this.handleDragEnd(e));
+
+        return card;
+    }
+
+    // === FILTROS ===
+
+    getFilteredTasksByStatus(status) {
+        let filteredTasks = this.tasks.filter(task => task.status === status);
+
+        if (this.currentPriorityFilter !== 'todas') {
+            filteredTasks = filteredTasks.filter(task => 
+                task.priority === this.currentPriorityFilter
+            );
+        }
+
+        return filteredTasks;
+    }
+
+    setPriorityFilter(priority) {
+        this.currentPriorityFilter = priority;
+
+        // Atualizar estado visual dos botões
+        this.priorityFilterButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.priority === priority);
+        });
+
         this.render();
     }
 
-    saveToStorage() {
-        localStorage.setItem('tasks', JSON.stringify(this.tasks));
+    // === ESTATÍSTICAS ===
+
+    updateStats() {
+        const todoTasks = this.tasks.filter(t => t.status === 'todo').length;
+        const inProgressTasks = this.tasks.filter(t => t.status === 'inprogress').length;
+        const doneTasks = this.tasks.filter(t => t.status === 'done').length;
+        const total = this.tasks.length;
+
+        // Estatísticas principais
+        this.todoCount.textContent = todoTasks;
+        this.inProgressCount.textContent = inProgressTasks;
+        this.doneCount.textContent = doneTasks;
+        this.totalCount.textContent = total;
+
+        // Contadores das colunas
+        this.todoColumnCount.textContent = todoTasks;
+        this.inProgressColumnCount.textContent = inProgressTasks;
+        this.doneColumnCount.textContent = doneTasks;
+    }
+
+    // === DRAG AND DROP ===
+
+    handleDragStart(e) {
+        this.draggedElement = e.target;
+        e.target.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    handleDragEnd(e) {
+        e.target.style.opacity = '1';
+    }
+
+    handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        const column = e.target.closest('.tasks-container');
+        if (column && this.draggedElement) {
+            const taskId = parseFloat(this.draggedElement.dataset.id);
+            const newStatus = column.dataset.column;
+            this.moveTask(taskId, newStatus);
+        }
+
+        return false;
     }
 
     // === HANDLERS DE EVENTOS ===
 
-    handleTaskClick(e) {
-        const taskItem = e.target.closest('.task-item');
-        if (!taskItem) return;
+    handleCardClick(e) {
+        const card = e.target.closest('.task-card');
+        if (!card) return;
 
-        const taskId = parseFloat(taskItem.dataset.id);
+        const taskId = parseFloat(card.dataset.id);
+        const task = this.tasks.find(t => t.id === taskId);
 
         if (e.target.classList.contains('delete-btn')) {
             this.deleteTask(taskId);
-        } else if (e.target.classList.contains('edit-btn')) {
-            const taskText = taskItem.querySelector('.task-text').textContent;
-            this.editTask(taskId, taskText);
+        } else if (e.target.classList.contains('move-left')) {
+            this.moveTaskLeft(task);
+        } else if (e.target.classList.contains('move-right')) {
+            this.moveTaskRight(task);
         }
     }
 
-    handleTaskChange(e) {
-        if (e.target.classList.contains('task-checkbox')) {
-            const taskId = parseFloat(e.target.closest('.task-item').dataset.id);
-            this.toggleTaskCompletion(taskId);
+    moveTaskLeft(task) {
+        if (task.status === 'inprogress') {
+            this.moveTask(task.id, 'todo');
+        } else if (task.status === 'done') {
+            this.moveTask(task.id, 'inprogress');
         }
+    }
+
+    moveTaskRight(task) {
+        if (task.status === 'todo') {
+            this.moveTask(task.id, 'inprogress');
+        } else if (task.status === 'inprogress') {
+            this.moveTask(task.id, 'done');
+        }
+    }
+
+    // === GERENCIAMENTO DE DADOS ===
+
+    saveAndUpdate() {
+        this.saveTasks();
+        this.render();
+    }
+
+    loadTasks() {
+        const stored = localStorage.getItem('kanbanTasks');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveTasks() {
+        localStorage.setItem('kanbanTasks', JSON.stringify(this.tasks));
     }
 
     // === UTILITÁRIOS ===
 
-    escapeHTML(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    getPriorityLabel(priority) {
+        const labels = {
+            'baixa': 'Baixa',
+            'media': 'Média',
+            'alta': 'Alta'
+        };
+        return labels[priority] || priority;
     }
 
     showAlert(message) {
         alert(message);
     }
 
-    // Métodos úteis para debug/expansão
-    getTaskCount() {
-        return this.tasks.length;
+    // Métodos públicos para exportação/importação
+    exportTasks() {
+        const dataStr = JSON.stringify(this.tasks, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `kanban-backup-${Date.now()}.json`;
+        link.click();
     }
 
-    getCompletedCount() {
-        return this.tasks.filter(task => task.completed).length;
+    clearAllTasks() {
+        if (confirm('Tem certeza que deseja limpar TODAS as tarefas? Esta ação não pode ser desfeita!')) {
+            this.tasks = [];
+            this.saveAndUpdate();
+        }
     }
 }
 
 // Inicialização da aplicação
 document.addEventListener('DOMContentLoaded', () => {
-    new TaskManager();
-});
-
-// Adiciona botão de limpar concluídas dinamicamente se não existir
-document.addEventListener('DOMContentLoaded', () => {
-    if (!document.getElementById('clearCompleted')) {
-        const statsDiv = document.querySelector('.stats');
-        if (statsDiv) {
-            const clearButton = document.createElement('button');
-            clearButton.id = 'clearCompleted';
-            clearButton.textContent = 'Limpar Concluídas';
-            clearButton.className = 'clear-btn';
-            statsDiv.appendChild(clearButton);
-        }
-    }
+    const kanban = new KanbanManager();
+    
+    // Expor globalmente para debug/console
+    window.kanban = kanban;
+    
+    console.log('✅ Kanban Board carregado com sucesso!');
+    console.log('💡 Use window.kanban para acessar funcionalidades via console');
 });

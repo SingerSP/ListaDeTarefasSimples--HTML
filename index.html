@@ -3,52 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Lista de Tarefas</title>
+    <title>Kanban Board - Gestão de Tarefas</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <!-- Cabeçalho -->
         <header class="header">
-            <h1>Minha Lista de Tarefas</h1>
-            <p>Organize seu dia de forma simples!</p>
+            <h1>Kanban Board</h1>
+            <p>Gerencie suas tarefas de forma visual e eficiente</p>
         </header>
 
         <!-- Área de entrada de nova tarefa -->
         <div class="input-section">
-            <input type="text" id="taskInput" placeholder="Digite uma nova tarefa...">
-            <button id="addButton">Adicionar</button>
+            <div class="input-row">
+                <input type="text" id="taskInput" placeholder="Digite o título da tarefa...">
+                <select id="prioritySelect" class="priority-select">
+                    <option value="baixa">Baixa</option>
+                    <option value="media" selected>Média</option>
+                    <option value="alta">Alta</option>
+                </select>
+                <button id="addButton">+ Adicionar Tarefa</button>
+            </div>
+            <textarea id="taskDescription" placeholder="Descrição da tarefa (opcional)..."></textarea>
         </div>
 
-        <!-- Filtros -->
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">Todas</button>
-            <button class="filter-btn" data-filter="pending">Pendentes</button>
-            <button class="filter-btn" data-filter="completed">Concluídas</button>
-        </div>
-
-        <!-- Lista de tarefas -->
-        <div class="tasks-section">
-            <ul id="taskList">
-                <!-- As tarefas serão adicionadas aqui dinamicamente -->
-                <!-- Exemplo de como uma tarefa ficará:
-                <li class="task-item">
-                    <input type="checkbox" class="task-checkbox">
-                    <span class="task-text">Minha primeira tarefa</span>
-                    <button class="delete-btn">×</button>
-                </li>
-                -->
-            </ul>
-        </div>
-
-        <!-- Contadores -->
+        <!-- Estatísticas -->
         <div class="stats">
-            <p>Total: <span id="totalTasks">0</span></p>
-            <p>Pendentes: <span id="pendingTasks">0</span></p>
-            <p>Concluídas: <span id="completedTasks">0</span></p>
+            <div class="stat-card">
+                <span class="stat-number" id="todoCount">0</span>
+                <span class="stat-label">A Fazer</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="inProgressCount">0</span>
+                <span class="stat-label">Em Progresso</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="doneCount">0</span>
+                <span class="stat-label">Concluídas</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="totalCount">0</span>
+                <span class="stat-label">Total</span>
+            </div>
+        </div>
+
+        <!-- Board Kanban -->
+        <div class="kanban-board">
+            <!-- Coluna: A Fazer -->
+            <div class="kanban-column" data-status="todo">
+                <div class="column-header todo-header">
+                    <h2>📋 A Fazer</h2>
+                    <span class="task-count" id="todoColumnCount">0</span>
+                </div>
+                <div class="tasks-container" id="todoTasks" data-column="todo">
+                    <!-- Tarefas serão adicionadas aqui -->
+                </div>
+            </div>
+
+            <!-- Coluna: Em Progresso -->
+            <div class="kanban-column" data-status="inprogress">
+                <div class="column-header inprogress-header">
+                    <h2>⚡ Em Progresso</h2>
+                    <span class="task-count" id="inProgressColumnCount">0</span>
+                </div>
+                <div class="tasks-container" id="inProgressTasks" data-column="inprogress">
+                    <!-- Tarefas serão adicionadas aqui -->
+                </div>
+            </div>
+
+            <!-- Coluna: Concluído -->
+            <div class="kanban-column" data-status="done">
+                <div class="column-header done-header">
+                    <h2>✅ Concluído</h2>
+                    <span class="task-count" id="doneColumnCount">0</span>
+                </div>
+                <div class="tasks-container" id="doneTasks" data-column="done">
+                    <!-- Tarefas serão adicionadas aqui -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtro de Prioridade -->
+        <div class="priority-filters">
+            <button class="priority-filter-btn active" data-priority="todas">Todas</button>
+            <button class="priority-filter-btn" data-priority="alta">Alta Prioridade</button>
+            <button class="priority-filter-btn" data-priority="media">Média Prioridade</button>
+            <button class="priority-filter-btn" data-priority="baixa">Baixa Prioridade</button>
         </div>
     </div>
 
+    <!-- Template para cards de tarefa -->
+    <template id="taskCardTemplate">
+        <div class="task-card" draggable="true">
+            <div class="task-card-header">
+                <span class="priority-badge"></span>
+                <button class="delete-btn" title="Excluir tarefa">×</button>
+            </div>
+            <h3 class="task-title"></h3>
+            <p class="task-description"></p>
+            <div class="task-footer">
+                <span class="task-date"></span>
+                <div class="task-actions">
+                    <button class="move-btn move-left" title="Mover para esquerda">←</button>
+                    <button class="move-btn move-right" title="Mover para direita">→</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    
     <script src="script.js"></script>
 </body>
 </html>
